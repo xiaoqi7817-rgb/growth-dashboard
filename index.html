@@ -7,15 +7,8 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
-  <!-- Supabase SDK，加载失败不影响本地模式 -->
-  <script>
-    window.addEventListener('error', function(e) {
-      if (e.filename && e.filename.includes('supabase')) {
-        console.warn('Supabase SDK 加载失败，本地模式仍然可用');
-      }
-    }, true);
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="console.warn('Supabase CDN 不可用')"></script>
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="window._supabaseFailed=true"></script>
 </head>
 <body>
 
