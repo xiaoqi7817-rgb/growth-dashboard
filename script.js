@@ -1,401 +1,268 @@
-/* ============================================================
-   日录 · 个人成长追踪
-   script.js
-   ============================================================ */
+/* ==============================================
+    目录 · 个人成长追踪 - 带Supabase云端版
+============================================== */
 
+// --- 1. Supabase 配置（这里替换成你的信息）---
+const SUPABASE_URL = 'https://siahvguyjgjwqy.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_VWg6NTEG_1q3M9UdxRJqVQ_u7TK0j-L';
+
+// 初始化 Supabase
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// --- 2. 情绪映射 ---
 const MOOD_MAP = {
-  1: '低落 · 状态不佳',
-  2: '一般 · 有些疲惫',
-  3: '平稳 · 正常发挥',
-  4: '不错 · 精力充沛',
-  5: '极佳 · 状态巅峰',
+    1: '低落 · 状态不佳',
+    2: '一般 · 有些疲惫',
+    3: '平稳 · 正常发挥',
+    4: '不错 · 精力充沛',
+    5: '极佳 · 状态巅峰',
 };
 
-// ─── Date Helpers ──────────────────────────────────────────
+// --- 3. 日期工具函数 ---
 function todayKey() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `diary_${y}-${m}-${day}`;
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function formatDate(key) {
-  // key: diary_YYYY-MM-DD
-  const s = key.replace('diary_', '');
-  const [y, m, d] = s.split('-');
-  const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-  const date = new Date(`${y}-${m}-${d}`);
-  return `${y} 年 ${m} 月 ${d} 日  周${weekdays[date.getDay()]}`;
+function formatDate(dateStr) {
+    const [y, m, d] = dateStr.split('-');
+    const date = new Date(y, m - 1, d);
+    const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    return `${y}.${m}.${d} ${weekDays[date.getDay()]}`;
 }
 
-function todayDisplay() {
-  const d = new Date();
-  const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}.${m}.${day}  周${weekdays[d.getDay()]}`;
+// --- 4. DOM 元素引用 ---
+const elements = {
+    loginSection: document.getElementById('login-section'),
+    appSection: document.getElementById('app-section'),
+    loginForm: document.getElementById('login-form'),
+    registerForm: document.getElementById('register-form'),
+    logoutBtn: document.getElementById('logout-btn'),
+    dateDisplay: document.getElementById('date-display'),
+    // 模块输入框
+    timeManagement: document.getElementById('time-management'),
+    completed: document.getElementById('completed'),
+    reflection: document.getElementById('reflection'),
+    moodNotes: document.getElementById('mood-notes'),
+    problems: document.getElementById('problems'),
+    exercise: document.getElementById('exercise'),
+    reading: document.getElementById('reading'),
+    // 情绪按钮
+    moodButtons: document.querySelectorAll('.mood-btn'),
+    // 按钮
+    addPlanBtn: document.getElementById('add-plan-btn'),
+    saveBtn: document.getElementById('save-btn'),
+    historyBtn: document.getElementById('history-btn'),
+    // 历史记录
+    historyModal: document.getElementById('history-modal'),
+    historyContent: document.getElementById('history-content'),
+    closeHistoryBtn: document.getElementById('close-history'),
+};
+
+// --- 5. 当前状态变量 ---
+let currentUser = null;
+let selectedMood = 3;
+let todayRecord = null;
+
+// --- 6. 认证相关函数 ---
+async function checkAuth() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        currentUser = user;
+        showApp();
+        loadTodayRecord();
+    } else {
+        showLogin();
+    }
 }
 
-// ─── Storage Helpers ───────────────────────────────────────
-function loadDay(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+function showLogin() {
+    elements.loginSection.style.display = 'block';
+    elements.appSection.style.display = 'none';
 }
 
-function saveToStorage(key, data) {
-  localStorage.setItem(key, JSON.stringify(data));
+function showApp() {
+    elements.loginSection.style.display = 'none';
+    elements.appSection.style.display = 'block';
+    elements.dateDisplay.textContent = formatDate(todayKey());
 }
 
-function getAllDays() {
-  const days = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (k && k.startsWith('diary_')) days.push(k);
-  }
-  days.sort((a, b) => b.localeCompare(a)); // newest first
-  return days;
+async function login(email, password) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return alert('登录失败：' + error.message);
+    currentUser = data.user;
+    showApp();
+    loadTodayRecord();
 }
 
-// ─── State ─────────────────────────────────────────────────
-let todos = []; // [{id, text, done}]
-let mood = null; // 1-5
-let exerciseTags = [];
-let readingTags  = [];
+async function register(email, password) {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) return alert('注册失败：' + error.message);
+    alert('注册成功！请登录');
+}
 
-// ─── Initialise ────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('today-label').textContent = todayDisplay();
-  loadTodayData();
-  bindTextareas();
-  bindMoodBtns();
-  bindQuickTags();
-  bindEnterOnTodoInput();
+async function logout() {
+    await supabase.auth.signOut();
+    currentUser = null;
+    showLogin();
+}
+
+// --- 7. 数据操作函数 ---
+async function loadTodayRecord() {
+    const { data, error } = await supabase
+        .from('records')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .eq('date', todayKey())
+        .single();
+
+    if (data) {
+        todayRecord = data;
+        fillForm(data);
+    } else {
+        todayRecord = null;
+        clearForm();
+    }
+}
+
+async function saveTodayRecord() {
+    const record = {
+        user_id: currentUser.id,
+        date: todayKey(),
+        time_management: elements.timeManagement.value,
+        completed: elements.completed.value,
+        reflection: elements.reflection.value,
+        mood: selectedMood,
+        mood_notes: elements.moodNotes.value,
+        problems: elements.problems.value,
+        exercise: elements.exercise.value,
+        reading: elements.reading.value,
+    };
+
+    let error;
+    if (todayRecord) {
+        const { error: err } = await supabase
+            .from('records')
+            .update(record)
+            .eq('id', todayRecord.id);
+        error = err;
+    } else {
+        const { error: err } = await supabase.from('records').insert([record]);
+        error = err;
+    }
+
+    if (error) {
+        alert('保存失败：' + error.message);
+    } else {
+        alert('保存成功！');
+        loadTodayRecord();
+    }
+}
+
+async function loadHistoryRecords() {
+    const { data, error } = await supabase
+        .from('records')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('date', { ascending: false });
+
+    if (error) return alert('加载历史失败：' + error.message);
+    renderHistory(data);
+}
+
+// --- 8. UI 辅助函数 ---
+function fillForm(record) {
+    elements.timeManagement.value = record.time_management || '';
+    elements.completed.value = record.completed || '';
+    elements.reflection.value = record.reflection || '';
+    elements.moodNotes.value = record.mood_notes || '';
+    elements.problems.value = record.problems || '';
+    elements.exercise.value = record.exercise || '';
+    elements.reading.value = record.reading || '';
+    setMood(record.mood || 3);
+}
+
+function clearForm() {
+    elements.timeManagement.value = '';
+    elements.completed.value = '';
+    elements.reflection.value = '';
+    elements.moodNotes.value = '';
+    elements.problems.value = '';
+    elements.exercise.value = '';
+    elements.reading.value = '';
+    setMood(3);
+}
+
+function setMood(mood) {
+    selectedMood = mood;
+    elements.moodButtons.forEach(btn => {
+        btn.classList.toggle('selected', parseInt(btn.dataset.mood) === mood);
+    });
+    document.getElementById('mood-label').textContent = MOOD_MAP[mood];
+}
+
+function renderHistory(records) {
+    if (records.length === 0) {
+        elements.historyContent.innerHTML = '<p>暂无历史记录</p>';
+        return;
+    }
+
+    elements.historyContent.innerHTML = records.map(r => `
+        <div class="history-item">
+            <h4>${formatDate(r.date)}</h4>
+            <p><strong>时间管理：</strong>${r.time_management || '无'}</p>
+            <p><strong>今日完成：</strong>${r.completed || '无'}</p>
+            <p><strong>复盘：</strong>${r.reflection || '无'}</p>
+            <p><strong>情绪：</strong>${MOOD_MAP[r.mood]}</p>
+            <hr>
+        </div>
+    `).join('');
+}
+
+// --- 9. 事件绑定 ---
+elements.loginForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    login(email, password);
 });
 
-function loadTodayData() {
-  const key  = todayKey();
-  const data = loadDay(key);
-  if (!data) return;
+elements.registerForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const email = document.getElementById('register-email').value;
+    const password = document.getElementById('register-password').value;
+    register(email, password);
+});
 
-  // Textareas
-  document.querySelectorAll('.card-textarea[data-key]').forEach(ta => {
-    const k = ta.dataset.key;
-    if (data[k] !== undefined) ta.value = data[k];
-  });
+elements.logoutBtn.addEventListener('click', logout);
 
-  // Todos
-  if (Array.isArray(data.todos)) {
-    todos = data.todos;
-    renderTodos();
-  }
+elements.moodButtons.forEach(btn => {
+    btn.addEventListener('click', () => setMood(parseInt(btn.dataset.mood)));
+});
 
-  // Mood
-  if (data.mood) {
-    mood = data.mood;
-    highlightMood(mood);
-  }
+elements.addPlanBtn.addEventListener('click', () => {
+    const list = elements.timeManagement.value;
+    elements.timeManagement.value = list + (list ? '\n' : '') + '· ';
+    elements.timeManagement.focus();
+});
 
-  // Tags
-  if (Array.isArray(data.exerciseTags)) {
-    exerciseTags = data.exerciseTags;
-    syncTagUI('exercise', exerciseTags);
-  }
-  if (Array.isArray(data.readingTags)) {
-    readingTags = data.readingTags;
-    syncTagUI('reading', readingTags);
-  }
-}
+elements.saveBtn.addEventListener('click', saveTodayRecord);
 
-// ─── Bind Textareas (auto-save on blur) ────────────────────
-function bindTextareas() {
-  document.querySelectorAll('.card-textarea[data-key]').forEach(ta => {
-    ta.addEventListener('input', autoGrow);
-    ta.addEventListener('blur', autosave);
-    autoGrow.call(ta);
-  });
-}
+elements.historyBtn.addEventListener('click', () => {
+    loadHistoryRecords();
+    elements.historyModal.style.display = 'block';
+});
 
-function autoGrow() {
-  this.style.height = 'auto';
-  this.style.height = this.scrollHeight + 'px';
-}
+elements.closeHistoryBtn.addEventListener('click', () => {
+    elements.historyModal.style.display = 'none';
+});
 
-function autosave() {
-  persistCurrentState();
-}
-
-// ─── Todo ──────────────────────────────────────────────────
-function bindEnterOnTodoInput() {
-  const inp = document.getElementById('todo-input');
-  inp.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); addTodo(); }
-  });
-}
-
-function addTodo() {
-  const inp = document.getElementById('todo-input');
-  const text = inp.value.trim();
-  if (!text) return;
-  todos.push({ id: Date.now(), text, done: false });
-  inp.value = '';
-  renderTodos();
-  persistCurrentState();
-}
-
-function toggleTodo(id) {
-  const item = todos.find(t => t.id === id);
-  if (item) item.done = !item.done;
-  renderTodos();
-  persistCurrentState();
-}
-
-function deleteTodo(id) {
-  todos = todos.filter(t => t.id !== id);
-  renderTodos();
-  persistCurrentState();
-}
-
-function renderTodos() {
-  const list = document.getElementById('todo-list');
-  list.innerHTML = '';
-  todos.forEach(todo => {
-    const li = document.createElement('li');
-    li.className = 'todo-item';
-
-    const chk = document.createElement('input');
-    chk.type = 'checkbox';
-    chk.className = 'todo-check';
-    chk.checked = todo.done;
-    chk.addEventListener('change', () => toggleTodo(todo.id));
-
-    const span = document.createElement('span');
-    span.className = 'todo-text' + (todo.done ? ' done' : '');
-    span.textContent = todo.text;
-
-    const del = document.createElement('button');
-    del.className = 'todo-del';
-    del.textContent = '×';
-    del.addEventListener('click', () => deleteTodo(todo.id));
-
-    li.appendChild(chk);
-    li.appendChild(span);
-    li.appendChild(del);
-    list.appendChild(li);
-  });
-}
-
-// ─── Mood ──────────────────────────────────────────────────
-function bindMoodBtns() {
-  document.querySelectorAll('.mood-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const val = parseInt(btn.dataset.val);
-      mood = val;
-      highlightMood(val);
-      persistCurrentState();
-    });
-  });
-}
-
-function highlightMood(val) {
-  document.querySelectorAll('.mood-btn').forEach(b => {
-    b.classList.toggle('active', parseInt(b.dataset.val) === val);
-  });
-  const desc = document.getElementById('mood-desc');
-  desc.textContent = MOOD_MAP[val] || '— 未选择 —';
-}
-
-// ─── Quick Tags ────────────────────────────────────────────
-function bindQuickTags() {
-  document.querySelectorAll('.qtag').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const group = btn.dataset.group;
-      const val   = btn.dataset.val;
-
-      if (group === 'exercise') {
-        toggleTag(exerciseTags, val);
-        syncTagUI('exercise', exerciseTags);
-        appendTagToTextarea('exercise', val);
-      } else if (group === 'reading') {
-        toggleTag(readingTags, val);
-        syncTagUI('reading', readingTags);
-        appendTagToTextarea('reading', val);
-      }
-      persistCurrentState();
-    });
-  });
-}
-
-function toggleTag(arr, val) {
-  const idx = arr.indexOf(val);
-  if (idx === -1) arr.push(val);
-  else arr.splice(idx, 1);
-}
-
-function syncTagUI(group, arr) {
-  document.querySelectorAll(`.qtag[data-group="${group}"]`).forEach(btn => {
-    btn.classList.toggle('active', arr.includes(btn.dataset.val));
-  });
-}
-
-function appendTagToTextarea(key, val) {
-  const ta = document.querySelector(`.card-textarea[data-key="${key}"]`);
-  if (!ta) return;
-  // If textarea is empty or doesn't already contain the val, append it
-  if (!ta.value.includes(val)) {
-    ta.value = ta.value ? ta.value + '、' + val : val;
-    autoGrow.call(ta);
-  }
-}
-
-// ─── Persist ───────────────────────────────────────────────
-function collectCurrentState() {
-  const data = { todos, mood, exerciseTags, readingTags };
-  document.querySelectorAll('.card-textarea[data-key]').forEach(ta => {
-    data[ta.dataset.key] = ta.value;
-  });
-  return data;
-}
-
-function persistCurrentState() {
-  const data = collectCurrentState();
-  saveToStorage(todayKey(), data);
-}
-
-// ─── Manual Save (with feedback) ──────────────────────────
-function saveDay() {
-  persistCurrentState();
-  const status = document.getElementById('save-status');
-  status.textContent = '✓ 已保存';
-  clearTimeout(saveDay._timer);
-  saveDay._timer = setTimeout(() => { status.textContent = ''; }, 2000);
-}
-
-// ─── History ───────────────────────────────────────────────
-function toggleHistory() {
-  const main = document.getElementById('main-view');
-  const hist = document.getElementById('history-view');
-  if (hist.classList.contains('hidden')) {
-    renderHistory();
-    main.classList.add('hidden');
-    hist.classList.remove('hidden');
-  } else {
-    hist.classList.add('hidden');
-    main.classList.remove('hidden');
-  }
-}
-
-function renderHistory() {
-  const list = document.getElementById('history-list');
-  list.innerHTML = '';
-
-  const days = getAllDays().filter(k => k !== todayKey());
-
-  if (days.length === 0) {
-    list.innerHTML = '<div class="history-empty">暂无历史记录</div>';
-    return;
-  }
-
-  days.forEach(key => {
-    const data = loadDay(key);
-    if (!data) return;
-
-    const entry = document.createElement('div');
-    entry.className = 'history-entry';
-
-    // Header row
-    const header = document.createElement('div');
-    header.className = 'history-entry-header';
-
-    const dateEl = document.createElement('span');
-    dateEl.className = 'history-date';
-    dateEl.textContent = formatDate(key);
-
-    const moodBadge = document.createElement('span');
-    moodBadge.className = 'history-mood-badge';
-    moodBadge.textContent = data.mood ? `情绪 ${data.mood}/5` : '情绪未记录';
-
-    header.appendChild(dateEl);
-    header.appendChild(moodBadge);
-
-    // Preview
-    const preview = document.createElement('div');
-    preview.className = 'history-preview';
-    const previewText = data.done || data.reflect || '（无摘要）';
-    preview.textContent = previewText;
-
-    // Detail (expandable)
-    const detail = document.createElement('div');
-    detail.className = 'history-detail';
-    detail.innerHTML = buildDetailHTML(data);
-
-    // Toggle
-    entry.addEventListener('click', () => {
-      detail.classList.toggle('open');
-    });
-
-    entry.appendChild(header);
-    entry.appendChild(preview);
-    entry.appendChild(detail);
-    list.appendChild(entry);
-  });
-}
-
-function buildDetailHTML(data) {
-  const fields = [
-    { label: '完成了什么', key: 'done' },
-    { label: '反思复盘',   key: 'reflect' },
-    { label: '今日难题',   key: 'problem' },
-    { label: '运动记录',   key: 'exercise' },
-    { label: '读书记录',   key: 'reading' },
-    { label: '情绪备注',   key: 'mood-note' },
-  ];
-
-  let html = '<div class="history-detail-grid">';
-
-  // Todos
-  if (Array.isArray(data.todos) && data.todos.length > 0) {
-    html += `<div class="history-field">
-      <span class="history-field-label">时间计划</span>
-      <div class="history-todo-list">`;
-    data.todos.forEach(t => {
-      html += `<div class="history-todo-item ${t.done ? 'done' : ''}">
-        <div class="history-todo-dot"></div>
-        <span>${escHtml(t.text)}</span>
-      </div>`;
-    });
-    html += '</div></div>';
-  }
-
-  // Mood
-  if (data.mood) {
-    html += `<div class="history-field">
-      <span class="history-field-label">情绪指数</span>
-      <span class="history-field-value">${data.mood} / 5 · ${MOOD_MAP[data.mood]}</span>
-    </div>`;
-  }
-
-  fields.forEach(f => {
-    const val = data[f.key];
-    if (val && val.trim()) {
-      html += `<div class="history-field">
-        <span class="history-field-label">${f.label}</span>
-        <span class="history-field-value">${escHtml(val)}</span>
-      </div>`;
+// --- 10. 初始化 ---
+document.addEventListener('DOMContentLoaded', () => {
+    // 确保 Supabase 客户端已加载
+    if (!window.supabase) {
+        alert('Supabase 客户端未加载，请检查 index.html 中的 CDN 引入');
+        return;
     }
-  });
-
-  html += '</div>';
-  return html;
-}
-
-function escHtml(str) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+    checkAuth();
+});
