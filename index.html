@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>日录 · 个人成长</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div class="logo">日录</div>
+      <div class="header-right">
+        <span id="today-label"></span>
+        <button id="history-btn" onclick="toggleHistory()">历史</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Cards Grid -->
+  <main id="main-view">
+    <div class="grid">
+
+      <!-- Card: 时间管理 -->
+      <div class="card card--wide" data-key="time">
+        <div class="card-header">
+          <span class="card-num">01</span>
+          <h2>今日时间管理</h2>
+          <span class="card-tag">计划清单</span>
+        </div>
+        <div class="todo-area">
+          <ul id="todo-list"></ul>
+          <div class="todo-input-row">
+            <input id="todo-input" type="text" placeholder="添加一项计划…" maxlength="80" />
+            <button onclick="addTodo()">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: 今日完成 -->
+      <div class="card" data-key="done">
+        <div class="card-header">
+          <span class="card-num">02</span>
+          <h2>今日完成</h2>
+          <span class="card-tag">成果</span>
+        </div>
+        <textarea class="card-textarea" data-key="done" placeholder="今天完成了什么？记录你的成果…" rows="6"></textarea>
+      </div>
+
+      <!-- Card: 反思复盘 -->
+      <div class="card" data-key="reflect">
+        <div class="card-header">
+          <span class="card-num">03</span>
+          <h2>今日反思复盘</h2>
+          <span class="card-tag">复盘</span>
+        </div>
+        <textarea class="card-textarea" data-key="reflect" placeholder="今天有哪些可以做得更好的地方？" rows="6"></textarea>
+      </div>
+
+      <!-- Card: 今日情绪 -->
+      <div class="card card--narrow" data-key="mood">
+        <div class="card-header">
+          <span class="card-num">04</span>
+          <h2>今日情绪</h2>
+          <span class="card-tag">状态</span>
+        </div>
+        <div class="mood-area">
+          <div class="mood-options">
+            <button class="mood-btn" data-val="1" title="低落">1</button>
+            <button class="mood-btn" data-val="2" title="一般">2</button>
+            <button class="mood-btn" data-val="3" title="平稳">3</button>
+            <button class="mood-btn" data-val="4" title="不错">4</button>
+            <button class="mood-btn" data-val="5" title="极佳">5</button>
+          </div>
+          <div class="mood-labels">
+            <span>低落</span><span>极佳</span>
+          </div>
+          <div class="mood-desc" id="mood-desc">— 未选择 —</div>
+          <textarea class="card-textarea mood-note" data-key="mood-note" placeholder="情绪备注…" rows="3"></textarea>
+        </div>
+      </div>
+
+      <!-- Card: 今日难题 -->
+      <div class="card" data-key="problem">
+        <div class="card-header">
+          <span class="card-num">05</span>
+          <h2>今天遇到的难题</h2>
+          <span class="card-tag">挑战</span>
+        </div>
+        <textarea class="card-textarea" data-key="problem" placeholder="遇到了什么困难？如何应对的？" rows="6"></textarea>
+      </div>
+
+      <!-- Card: 今日运动 -->
+      <div class="card" data-key="exercise">
+        <div class="card-header">
+          <span class="card-num">06</span>
+          <h2>今日运动记录</h2>
+          <span class="card-tag">身体</span>
+        </div>
+        <div class="quick-tags" id="exercise-tags">
+          <button class="qtag" data-group="exercise" data-val="跑步">跑步</button>
+          <button class="qtag" data-group="exercise" data-val="健身">健身</button>
+          <button class="qtag" data-group="exercise" data-val="散步">散步</button>
+          <button class="qtag" data-group="exercise" data-val="瑜伽">瑜伽</button>
+          <button class="qtag" data-group="exercise" data-val="骑行">骑行</button>
+          <button class="qtag" data-group="exercise" data-val="游泳">游泳</button>
+        </div>
+        <textarea class="card-textarea" data-key="exercise" placeholder="运动类型、时长、感受…" rows="4"></textarea>
+      </div>
+
+      <!-- Card: 今日读书 -->
+      <div class="card" data-key="reading">
+        <div class="card-header">
+          <span class="card-num">07</span>
+          <h2>今日读书记录</h2>
+          <span class="card-tag">阅读</span>
+        </div>
+        <div class="quick-tags" id="reading-tags">
+          <button class="qtag" data-group="reading" data-val="📖">读完</button>
+          <button class="qtag" data-group="reading" data-val="一半">读了一半</button>
+          <button class="qtag" data-group="reading" data-val="几页">随手翻了几页</button>
+          <button class="qtag" data-group="reading" data-val="没读">今天没读</button>
+        </div>
+        <textarea class="card-textarea" data-key="reading" placeholder="书名、章节、摘录或感悟…" rows="4"></textarea>
+      </div>
+
+    </div>
+
+    <div class="save-bar">
+      <button id="save-btn" onclick="saveDay()">保存今日记录</button>
+      <span id="save-status"></span>
+    </div>
+  </main>
+
+  <!-- History View -->
+  <section id="history-view" class="hidden">
+    <div class="history-header">
+      <h2>历史记录</h2>
+      <button onclick="toggleHistory()">← 返回今日</button>
+    </div>
+    <div id="history-list"></div>
+  </section>
+
+  <footer>
+    <span>日录 · 记录每一天的成长</span>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
