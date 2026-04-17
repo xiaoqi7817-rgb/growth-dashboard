@@ -170,11 +170,47 @@ body {
 }
 .auth-msg.error { color: #c0826a; }
 
-.auth-note {
-  margin-top: 1.4rem;
-  font-size: 0.72rem;
+.auth-btn--ghost {
+  background: transparent;
   color: var(--text-dim);
+  border: 1px solid var(--border-mid);
+  margin-top: 0;
+}
+.auth-btn--ghost:hover {
+  opacity: 1;
+  border-color: var(--border-hover);
+  color: var(--text-mid);
+}
+
+.auth-divider {
+  text-align: center;
   font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-faint);
+  letter-spacing: 0.1em;
+  margin: 1.2rem 0 0.8rem;
+  position: relative;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 38%;
+  height: 1px;
+  background: var(--border);
+}
+.auth-divider::before { left: 0; }
+.auth-divider::after  { right: 0; }
+
+.auth-note {
+  margin-top: 0.8rem;
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  text-align: center;
+  letter-spacing: 0.03em;
 }
 
 .link-btn {
