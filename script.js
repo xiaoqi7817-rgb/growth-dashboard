@@ -35,7 +35,7 @@ const TEMPLATES = {
 };
 
 // ── 状态 ────────────────────────────────────────────────────
-let supabase = null;
+let _sb = null;          // Supabase client（避免与SDK全局变量冲突）
 let currentUser = null;
 let isLocalMode = false;
 
@@ -72,10 +72,10 @@ function initSupabase() {
       console.warn('Supabase SDK 未加载，使用本地模式');
       return;
     }
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // 监听 Auth 状态
-    supabase.auth.onAuthStateChange((event, session) => {
+    _sb.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         currentUser = session.user;
         enterApp(session.user);
@@ -83,7 +83,7 @@ function initSupabase() {
     });
 
     // 检查已有会话
-    supabase.auth.getSession().then(({ data }) => {
+    _sb.auth.getSession().then(({ data }) => {
       if (data.session?.user) {
         currentUser = data.session.user;
         enterApp(data.session.user);
@@ -91,7 +91,7 @@ function initSupabase() {
     });
   } catch (e) {
     console.warn('Supabase 初始化失败，使用本地模式:', e);
-    supabase = null;
+    _sb = null;
   }
 }
 
@@ -113,20 +113,20 @@ function setAuthMsg(msg, isError = false) {
 }
 
 async function doLogin() {
-  if (!supabase) { setAuthMsg('请先配置 Supabase，或选择本地模式', true); return; }
+  if (!_sb) { setAuthMsg('请先配置 Supabase，或选择本地模式', true); return; }
   const email = document.getElementById('login-email').value.trim();
   const pwd   = document.getElementById('login-pwd').value;
   if (!email || !pwd) { setAuthMsg('请填写邮箱和密码', true); return; }
 
   setAuthMsg('登录中…');
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pwd });
+  const { data, error } = await _sb.auth.signInWithPassword({ email, password: pwd });
   if (error) { setAuthMsg(friendlyError(error.message), true); return; }
   currentUser = data.user;
   enterApp(data.user);
 }
 
 async function doRegister() {
-  if (!supabase) { setAuthMsg('请先配置 Supabase，或选择本地模式', true); return; }
+  if (!_sb) { setAuthMsg('请先配置 Supabase，或选择本地模式', true); return; }
   const name  = document.getElementById('reg-name').value.trim();
   const email = document.getElementById('reg-email').value.trim();
   const pwd   = document.getElementById('reg-pwd').value;
@@ -134,7 +134,7 @@ async function doRegister() {
   if (pwd.length < 6)          { setAuthMsg('密码至少 6 位', true); return; }
 
   setAuthMsg('注册中…');
-  const { data, error } = await supabase.auth.signUp({
+  const { data, error } = await _sb.auth.signUp({
     email, password: pwd,
     options: { data: { display_name: name } },
   });
@@ -149,7 +149,7 @@ async function doRegister() {
 }
 
 async function doLogout() {
-  if (supabase && !isLocalMode) await supabase.auth.signOut();
+  if (_sb && !isLocalMode) await _sb.auth.signOut();
   currentUser = null;
   isLocalMode = false;
   resetAppState();
@@ -260,9 +260,9 @@ function localAllKeys() {
 }
 
 async function remoteLoad(dayKey) {
-  if (!supabase || isLocalMode) return localLoad(dayKey);
+  if (!_sb || isLocalMode) return localLoad(dayKey);
   try {
-    const { data, error } = await supabase
+    const { data, error } = await _sb
       .from('diary_entries')
       .select('content')
       .eq('user_id', currentUser.id)
@@ -276,9 +276,9 @@ async function remoteLoad(dayKey) {
 async function remoteSave(dayKey, content) {
   // Always save locally as cache/offline fallback
   localSave(dayKey, content);
-  if (!supabase || isLocalMode) return true;
+  if (!_sb || isLocalMode) return true;
   try {
-    const { error } = await supabase
+    const { error } = await _sb
       .from('diary_entries')
       .upsert({
         user_id:    currentUser.id,
@@ -290,9 +290,9 @@ async function remoteSave(dayKey, content) {
 }
 
 async function remoteAllKeys() {
-  if (!supabase || isLocalMode) return localAllKeys();
+  if (!_sb || isLocalMode) return localAllKeys();
   try {
-    const { data, error } = await supabase
+    const { data, error } = await _sb
       .from('diary_entries')
       .select('entry_date')
       .eq('user_id', currentUser.id)
@@ -549,7 +549,7 @@ async function renderHistory() {
   list.innerHTML = '';
 
   for (const key of keys) {
-    const data = await (supabase && !isLocalMode ? remoteLoad(key) : Promise.resolve(localLoad(key)));
+    const data = await (_sb && !isLocalMode ? remoteLoad(key) : Promise.resolve(localLoad(key)));
     if (!data) continue;
 
     const entry = document.createElement('div');
