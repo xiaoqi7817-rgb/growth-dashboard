@@ -1,9 +1,16 @@
-/* ==============================================
-    目录 · 个人成长追踪 - 带Supabase云端版
-============================================== */
+/* ============================================================
+   日录 · script.js
+   依赖：Supabase JS SDK（从 CDN 加载）
+   ============================================================
 
-// --- 1. Supabase 配置（这里替换成你的信息）---
-const SUPABASE_URL = 'https://siahvguyjgjwqy.supabase.co';
+   ▶ 配置说明：
+     把下方 SUPABASE_URL 和 SUPABASE_ANON_KEY 替换成你自己的。
+     在 Supabase 控制台 → Settings → API 里可以找到。
+     如果暂时不用 Supabase，选"本地模式"即可。
+
+   ============================================================ */
+
+const SUPABASE_URL      = 'https://siahvguyjgjwqy.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_VWg6NTEG_1q3M9UdxRJqVQ_u7TK0j-L';
 
 // ── 每日励志/引导语 ──────────────────────────────────────────
@@ -57,7 +64,12 @@ document.addEventListener('DOMContentLoaded', () => {
 function initSupabase() {
   try {
     if (SUPABASE_URL.includes('YOUR_PROJECT')) {
-      // 未配置，保持 Auth 界面，本地模式按钮可用
+      // 未配置，跳过，本地模式仍然可用
+      console.log('Supabase 未配置，使用本地模式');
+      return;
+    }
+    if (typeof window.supabase === 'undefined') {
+      console.warn('Supabase SDK 未加载，使用本地模式');
       return;
     }
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -78,7 +90,8 @@ function initSupabase() {
       }
     });
   } catch (e) {
-    console.warn('Supabase init failed, local mode only:', e);
+    console.warn('Supabase 初始化失败，使用本地模式:', e);
+    supabase = null;
   }
 }
 
