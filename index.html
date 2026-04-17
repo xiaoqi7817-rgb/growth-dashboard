@@ -3,151 +3,339 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>日录 · 个人成长</title>
+  <title>日录 · 每天记一点</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
+<!-- ═══════════════════════════════════
+     AUTH SCREEN
+═══════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">日录</div>
+    <p class="auth-sub">记录每一天的成长与感受</p>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="login" onclick="switchTab('login')">登录</button>
+      <button class="auth-tab" data-tab="register" onclick="switchTab('register')">注册</button>
+    </div>
+
+    <div id="login-form" class="auth-form">
+      <div class="auth-field">
+        <label>邮箱</label>
+        <input type="email" id="login-email" placeholder="your@email.com" autocomplete="email" />
+      </div>
+      <div class="auth-field">
+        <label>密码</label>
+        <input type="password" id="login-pwd" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <button class="auth-btn" onclick="doLogin()">进入日录</button>
+    </div>
+
+    <div id="register-form" class="auth-form hidden">
+      <div class="auth-field">
+        <label>昵称</label>
+        <input type="text" id="reg-name" placeholder="怎么称呼你？" maxlength="20" />
+      </div>
+      <div class="auth-field">
+        <label>邮箱</label>
+        <input type="email" id="reg-email" placeholder="your@email.com" autocomplete="email" />
+      </div>
+      <div class="auth-field">
+        <label>密码</label>
+        <input type="password" id="reg-pwd" placeholder="至少 6 位" autocomplete="new-password" />
+      </div>
+      <button class="auth-btn" onclick="doRegister()">创建账号</button>
+    </div>
+
+    <div id="auth-msg" class="auth-msg"></div>
+
+    <p class="auth-note">也可以 <button class="link-btn" onclick="useLocalMode()">不登录，仅本地使用</button></p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     MAIN APP
+═══════════════════════════════════ -->
+<div id="app" class="hidden">
+
   <header>
     <div class="header-inner">
-      <div class="logo">日录</div>
+      <div class="header-left">
+        <span class="logo">日录</span>
+        <span class="header-date" id="header-date"></span>
+      </div>
       <div class="header-right">
-        <span id="today-label"></span>
-        <button id="history-btn" onclick="toggleHistory()">历史</button>
+        <span class="header-user" id="header-user"></span>
+        <button class="hbtn" onclick="toggleHistory()">历史</button>
+        <button class="hbtn hbtn--dim" onclick="doLogout()">退出</button>
       </div>
     </div>
   </header>
 
-  <!-- Main Cards Grid -->
+  <!-- ─── Main Journal View ─── -->
   <main id="main-view">
-    <div class="grid">
 
-      <!-- Card: 时间管理 -->
-      <div class="card card--wide" data-key="time">
-        <div class="card-header">
-          <span class="card-num">01</span>
-          <h2>今日时间管理</h2>
-          <span class="card-tag">计划清单</span>
+    <div class="day-headline">
+      <span id="day-greeting"></span>
+      <span class="day-dot">·</span>
+      <span id="day-quote" class="day-quote"></span>
+    </div>
+
+    <div class="cards-layout">
+
+      <!-- ① 今天的安排 -->
+      <div class="card card-todo">
+        <div class="card-head">
+          <span class="card-icon">○</span>
+          <h2>今天的安排</h2>
+          <span class="card-badge">计划</span>
         </div>
-        <div class="todo-area">
-          <ul id="todo-list"></ul>
-          <div class="todo-input-row">
-            <input id="todo-input" type="text" placeholder="添加一项计划…" maxlength="80" />
-            <button onclick="addTodo()">+</button>
+        <ul id="todo-list"></ul>
+        <div class="todo-input-row">
+          <input id="todo-input" type="text" placeholder="添加一项计划，回车确认…" maxlength="80" />
+          <button onclick="addTodo()">＋</button>
+        </div>
+      </div>
+
+      <!-- ② 今天，我做到了 -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-icon">✦</span>
+          <h2>今天，我做到了</h2>
+          <span class="card-badge">成果</span>
+        </div>
+        <div class="prompt-chips" data-target="done">
+          <span class="chip" onclick="insertPrompt('done', this)">什么让你今天感到自豪？</span>
+          <span class="chip" onclick="insertPrompt('done', this)">今天你解决了什么难题？</span>
+          <span class="chip" onclick="insertPrompt('done', this)">今天有没有帮到某个人？</span>
+          <span class="chip" onclick="insertPrompt('done', this)">完成了哪件一直拖着的事？</span>
+        </div>
+        <textarea class="jtextarea" data-key="done" placeholder="点击上方问句获得灵感，或直接写下来…" rows="5"></textarea>
+      </div>
+
+      <!-- ③ 回头看看今天 -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-icon">◈</span>
+          <h2>回头看看今天</h2>
+          <span class="card-badge">复盘</span>
+        </div>
+        <div class="template-btns" data-target="reflect">
+          <button class="tmpl-btn" onclick="applyTemplate('reflect', 'simple')">简单复盘</button>
+          <button class="tmpl-btn" onclick="applyTemplate('reflect', 'emotion')">情绪复盘</button>
+          <button class="tmpl-btn" onclick="applyTemplate('reflect', 'growth')">成长复盘</button>
+        </div>
+        <textarea class="jtextarea" data-key="reflect" placeholder="选一个复盘模板，或自由书写…" rows="6"></textarea>
+      </div>
+
+      <!-- ④ 我现在感觉…… -->
+      <div class="card card-mood">
+        <div class="card-head">
+          <span class="card-icon">◐</span>
+          <h2>我现在感觉……</h2>
+          <span class="card-badge">情绪</span>
+        </div>
+
+        <div class="mood-section">
+          <p class="mood-q">今天整体的心情词？<span class="mood-q-hint">（可多选）</span></p>
+          <div class="mood-words" id="mood-words">
+            <button class="mword" data-word="平静">平静</button>
+            <button class="mword" data-word="喜悦">喜悦</button>
+            <button class="mword" data-word="充实">充实</button>
+            <button class="mword" data-word="疲惫">疲惫</button>
+            <button class="mword" data-word="焦虑">焦虑</button>
+            <button class="mword" data-word="烦躁">烦躁</button>
+            <button class="mword" data-word="低落">低落</button>
+            <button class="mword" data-word="感恩">感恩</button>
+            <button class="mword" data-word="期待">期待</button>
+            <button class="mword" data-word="迷茫">迷茫</button>
           </div>
         </div>
+
+        <div class="prompt-chips" data-target="mood-note">
+          <span class="chip" onclick="insertPrompt('mood-note', this)">今天有什么时刻让你特别有感觉？</span>
+          <span class="chip" onclick="insertPrompt('mood-note', this)">情绪背后，是什么在影响你？</span>
+          <span class="chip" onclick="insertPrompt('mood-note', this)">如果给今天的状态打个比方，像什么？</span>
+        </div>
+        <textarea class="jtextarea" data-key="mood-note" placeholder="说说今天的情绪故事…" rows="4"></textarea>
       </div>
 
-      <!-- Card: 今日完成 -->
-      <div class="card" data-key="done">
-        <div class="card-header">
-          <span class="card-num">02</span>
-          <h2>今日完成</h2>
-          <span class="card-tag">成果</span>
+      <!-- ⑤ 卡住我的事 -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-icon">△</span>
+          <h2>卡住我的事</h2>
+          <span class="card-badge">挑战</span>
         </div>
-        <textarea class="card-textarea" data-key="done" placeholder="今天完成了什么？记录你的成果…" rows="6"></textarea>
+        <div class="prompt-chips" data-target="problem">
+          <span class="chip" onclick="insertPrompt('problem', this)">今天什么事让你感到卡壳？</span>
+          <span class="chip" onclick="insertPrompt('problem', this)">是什么让这件事变得困难？</span>
+          <span class="chip" onclick="insertPrompt('problem', this)">你尝试了什么方法？结果如何？</span>
+          <span class="chip" onclick="insertPrompt('problem', this)">如果明天重来，你会怎么做？</span>
+        </div>
+        <textarea class="jtextarea" data-key="problem" placeholder="遇到什么卡点了？写出来，往往能帮你看清楚…" rows="5"></textarea>
       </div>
 
-      <!-- Card: 反思复盘 -->
-      <div class="card" data-key="reflect">
-        <div class="card-header">
-          <span class="card-num">03</span>
-          <h2>今日反思复盘</h2>
-          <span class="card-tag">复盘</span>
+      <!-- ⑥ 今天最深的那一刻 -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-icon">❋</span>
+          <h2>今天最深的那一刻</h2>
+          <span class="card-badge">片段</span>
         </div>
-        <textarea class="card-textarea" data-key="reflect" placeholder="今天有哪些可以做得更好的地方？" rows="6"></textarea>
+        <div class="prompt-chips" data-target="moment">
+          <span class="chip" onclick="insertPrompt('moment', this)">今天最有收获的一句话是什么？</span>
+          <span class="chip" onclick="insertPrompt('moment', this)">今天最深刻的一个场景或片段？</span>
+          <span class="chip" onclick="insertPrompt('moment', this)">今天让你心里一动的小事？</span>
+          <span class="chip" onclick="insertPrompt('moment', this)">如果今天只能留下一件事，是什么？</span>
+        </div>
+        <textarea class="jtextarea" data-key="moment" placeholder="用几句话，把今天最珍贵的那一刻留下来…" rows="5"></textarea>
       </div>
 
-      <!-- Card: 今日情绪 -->
-      <div class="card card--narrow" data-key="mood">
-        <div class="card-header">
-          <span class="card-num">04</span>
-          <h2>今日情绪</h2>
-          <span class="card-tag">状态</span>
+      <!-- ⑦ 身体动起来了吗 -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-icon">◉</span>
+          <h2>身体动起来了吗</h2>
+          <span class="card-badge">运动</span>
         </div>
-        <div class="mood-area">
-          <div class="mood-options">
-            <button class="mood-btn" data-val="1" title="低落">1</button>
-            <button class="mood-btn" data-val="2" title="一般">2</button>
-            <button class="mood-btn" data-val="3" title="平稳">3</button>
-            <button class="mood-btn" data-val="4" title="不错">4</button>
-            <button class="mood-btn" data-val="5" title="极佳">5</button>
-          </div>
-          <div class="mood-labels">
-            <span>低落</span><span>极佳</span>
-          </div>
-          <div class="mood-desc" id="mood-desc">— 未选择 —</div>
-          <textarea class="card-textarea mood-note" data-key="mood-note" placeholder="情绪备注…" rows="3"></textarea>
-        </div>
-      </div>
-
-      <!-- Card: 今日难题 -->
-      <div class="card" data-key="problem">
-        <div class="card-header">
-          <span class="card-num">05</span>
-          <h2>今天遇到的难题</h2>
-          <span class="card-tag">挑战</span>
-        </div>
-        <textarea class="card-textarea" data-key="problem" placeholder="遇到了什么困难？如何应对的？" rows="6"></textarea>
-      </div>
-
-      <!-- Card: 今日运动 -->
-      <div class="card" data-key="exercise">
-        <div class="card-header">
-          <span class="card-num">06</span>
-          <h2>今日运动记录</h2>
-          <span class="card-tag">身体</span>
-        </div>
-        <div class="quick-tags" id="exercise-tags">
+        <div class="qtag-row" id="exercise-tags">
           <button class="qtag" data-group="exercise" data-val="跑步">跑步</button>
           <button class="qtag" data-group="exercise" data-val="健身">健身</button>
           <button class="qtag" data-group="exercise" data-val="散步">散步</button>
           <button class="qtag" data-group="exercise" data-val="瑜伽">瑜伽</button>
           <button class="qtag" data-group="exercise" data-val="骑行">骑行</button>
           <button class="qtag" data-group="exercise" data-val="游泳">游泳</button>
+          <button class="qtag" data-group="exercise" data-val="今天没动">今天没动</button>
         </div>
-        <textarea class="card-textarea" data-key="exercise" placeholder="运动类型、时长、感受…" rows="4"></textarea>
+        <div class="prompt-chips" data-target="exercise">
+          <span class="chip" onclick="insertPrompt('exercise', this)">运动完身体感觉怎么样？</span>
+          <span class="chip" onclick="insertPrompt('exercise', this)">今天有没有突破自己的记录？</span>
+        </div>
+        <textarea class="jtextarea" data-key="exercise" placeholder="动了多久？感受怎么样？" rows="3"></textarea>
       </div>
 
-      <!-- Card: 今日读书 -->
-      <div class="card" data-key="reading">
-        <div class="card-header">
-          <span class="card-num">07</span>
-          <h2>今日读书记录</h2>
-          <span class="card-tag">阅读</span>
+      <!-- ⑧ 今天读了什么 -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-icon">◻</span>
+          <h2>今天读了什么</h2>
+          <span class="card-badge">阅读</span>
         </div>
-        <div class="quick-tags" id="reading-tags">
-          <button class="qtag" data-group="reading" data-val="📖">读完</button>
-          <button class="qtag" data-group="reading" data-val="一半">读了一半</button>
-          <button class="qtag" data-group="reading" data-val="几页">随手翻了几页</button>
-          <button class="qtag" data-group="reading" data-val="没读">今天没读</button>
+        <div class="qtag-row" id="reading-tags">
+          <button class="qtag" data-group="reading" data-val="读完一本">读完一本</button>
+          <button class="qtag" data-group="reading" data-val="读了一半">读了一半</button>
+          <button class="qtag" data-group="reading" data-val="翻了几页">翻了几页</button>
+          <button class="qtag" data-group="reading" data-val="今天没读">今天没读</button>
         </div>
-        <textarea class="card-textarea" data-key="reading" placeholder="书名、章节、摘录或感悟…" rows="4"></textarea>
+        <div class="prompt-chips" data-target="reading">
+          <span class="chip" onclick="insertPrompt('reading', this)">读到了哪一句让你停下来？</span>
+          <span class="chip" onclick="insertPrompt('reading', this)">这本书/这段话让你想到了什么？</span>
+          <span class="chip" onclick="insertPrompt('reading', this)">这个观点和你原来想的一样吗？</span>
+        </div>
+        <textarea class="jtextarea" data-key="reading" placeholder="书名、章节、摘录、感悟……" rows="4"></textarea>
       </div>
 
+      <!-- ⑨ 今天，我感谢…… -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-icon">♡</span>
+          <h2>今天，我感谢……</h2>
+          <span class="card-badge">感恩</span>
+        </div>
+        <div class="prompt-chips" data-target="gratitude-note">
+          <span class="chip" onclick="insertPromptAndFocusList('gratitude-note', this)">今天有什么小事让你感到温暖？</span>
+          <span class="chip" onclick="insertPromptAndFocusList('gratitude-note', this)">有没有人让你觉得被支持或被看见？</span>
+          <span class="chip" onclick="insertPromptAndFocusList('gratitude-note', this)">今天有什么原本担心但没发生的事？</span>
+          <span class="chip" onclick="insertPromptAndFocusList('gratitude-note', this)">身边有什么你平时忽略的美好？</span>
+        </div>
+        <ul class="grat-list" id="grat-list"></ul>
+        <div class="grat-input-row">
+          <input id="grat-input" type="text" placeholder="写下一件感恩的事，回车确认…" maxlength="100" />
+          <button onclick="addGrat()">＋</button>
+        </div>
+        <textarea class="jtextarea grat-note" data-key="gratitude-note" placeholder="也可以在这里自由展开写…" rows="2"></textarea>
+      </div>
+
+      <!-- ⑩ 我在靠近目标吗 -->
+      <div class="card card-goals">
+        <div class="card-head">
+          <span class="card-icon">◎</span>
+          <h2>我在靠近目标吗</h2>
+          <span class="card-badge">目标</span>
+        </div>
+        <div id="goals-list"></div>
+        <button class="add-goal-btn" onclick="openGoalModal()">＋ 设定一个目标</button>
+        <div class="goal-today-section">
+          <p class="goal-today-label">今天为目标做了什么？</p>
+          <div class="prompt-chips">
+            <span class="chip" onclick="insertPrompt('goal-today', this)">今天完成了哪一个小步骤？</span>
+            <span class="chip" onclick="insertPrompt('goal-today', this)">有没有克服某个阻碍？</span>
+            <span class="chip" onclick="insertPrompt('goal-today', this)">今天的行动，让你离目标近了多少？</span>
+            <span class="chip" onclick="insertPrompt('goal-today', this)">如果没有行动，是什么卡住了你？</span>
+          </div>
+          <textarea class="jtextarea" data-key="goal-today" placeholder="哪怕一小步，也值得记录…" rows="4"></textarea>
+        </div>
+      </div>
+
+    </div><!-- /.cards-layout -->
+
+    <!-- Goal Modal — 纯文字，简洁 -->
+    <div id="goal-modal" class="modal-overlay hidden" onclick="closeGoalModalOutside(event)">
+      <div class="modal-box">
+        <div class="modal-head">
+          <h3>设定一个目标</h3>
+          <button class="modal-close" onclick="closeGoalModal()">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="auth-field">
+            <label>目标名称</label>
+            <input type="text" id="goal-name-input" placeholder="例：坚持每天读书30分钟" maxlength="40" />
+          </div>
+          <div class="auth-field">
+            <label>截止日期（可选）</label>
+            <input type="date" id="goal-date-input" />
+          </div>
+          <div class="auth-field">
+            <label>为什么这个目标对你重要？</label>
+            <input type="text" id="goal-why-input" placeholder="写下你的理由，让自己更有动力…" maxlength="60" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="auth-btn" onclick="saveGoal()">保存目标</button>
+        </div>
+      </div>
     </div>
-
     <div class="save-bar">
-      <button id="save-btn" onclick="saveDay()">保存今日记录</button>
+      <button id="save-btn" onclick="saveDay()">
+        <span>保存今天的记录</span>
+      </button>
       <span id="save-status"></span>
     </div>
+
   </main>
 
-  <!-- History View -->
+  <!-- ─── History View ─── -->
   <section id="history-view" class="hidden">
-    <div class="history-header">
-      <h2>历史记录</h2>
-      <button onclick="toggleHistory()">← 返回今日</button>
+    <div class="history-top">
+      <h2>过去的日子</h2>
+      <button onclick="toggleHistory()">← 回到今天</button>
     </div>
     <div id="history-list"></div>
   </section>
 
-  <footer>
-    <span>日录 · 记录每一天的成长</span>
-  </footer>
+</div><!-- /#app -->
 
-  <script src="script.js"></script>
+<footer id="main-footer">
+  <span>日录 · 记录每一天的成长与感受</span>
+</footer>
+
+<script src="script.js"></script>
 </body>
 </html>
