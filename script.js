@@ -1,3 +1,49 @@
+// ========== 你自己的配置 ==========
+const SUPABASE_URL = "https://siahvguyjgjwqy.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_VWg6NTEG_1q3M9UdxRJqVQ_u7TK0j-L";
+
+// ========== 初始化 ==========
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ========== 页面加载后绑定按钮 ==========
+document.addEventListener('DOMContentLoaded', async () => {
+  // 绑定登录按钮
+  const loginBtn = document.getElementById('login-btn');
+  if (loginBtn) loginBtn.addEventListener('click', login);
+
+  // 绑定注册按钮
+  const registerBtn = document.getElementById('register-btn');
+  if (registerBtn) registerBtn.addEventListener('click', register);
+
+  // 检查是否已登录
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    console.log('已登录:', user.id);
+  }
+});
+
+// ========== 登录 ==========
+async function login() {
+  const email = document.getElementById('email')?.value;
+  const password = document.getElementById('password')?.value;
+  if (!email || !password) return alert('请输入邮箱密码');
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return alert('登录失败：' + error.message);
+  alert('登录成功！');
+  location.reload();
+}
+
+// ========== 注册 ==========
+async function register() {
+  const email = document.getElementById('email')?.value;
+  const password = document.getElementById('password')?.value;
+  if (!email || !password) return alert('请输入邮箱密码');
+
+  const { error } = await supabase.auth.signUp({ email, password });
+  if (error) return alert('注册失败：' + error.message);
+  alert('注册成功，请查收邮箱或直接登录');
+}
 /* ============================================================
    日录 · script.js
    依赖：Supabase JS SDK（从 CDN 加载）
