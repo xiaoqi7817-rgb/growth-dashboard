@@ -1,13 +1,6 @@
 /* ============================================================
    日录 · script.js
    依赖：Supabase JS SDK（从 CDN 加载）
-   ============================================================
-
-   ▶ 配置说明：
-     把下方 SUPABASE_URL 和 SUPABASE_ANON_KEY 替换成你自己的。
-     在 Supabase 控制台 → Settings → API 里可以找到。
-     如果暂时不用 Supabase，选"本地模式"即可。
-
    ============================================================ */
 
 const SUPABASE_URL      = 'https://siahvguyjgjwqyznfhbr.supabase.co';
@@ -43,9 +36,9 @@ let todos        = [];   // [{id, text, done}]
 let moodWords    = [];   // string[]
 let exerciseTags = [];
 let readingTags  = [];
-let gratItems    = [];   // [{id, text}]  感恩清单
-let goals        = [];   // [{id, name, deadline, type, checkedDates, percentDates}]  目标（持久化到用户存储）
-let goalTypeSelected = 'checkbox'; // modal内临时状态
+let gratItems    = [];   // [{id, text}]
+let goals        = [];   // [{id, name, deadline, why}]
+let goalTypeSelected = 'checkbox';
 
 // ═══════════════════════════════════════════════════════════
 // INIT
@@ -64,7 +57,6 @@ document.addEventListener('DOMContentLoaded', () => {
 function initSupabase() {
   try {
     if (SUPABASE_URL.includes('YOUR_PROJECT')) {
-      // 未配置，跳过，本地模式仍然可用
       console.log('Supabase 未配置，使用本地模式');
       return;
     }
@@ -74,7 +66,6 @@ function initSupabase() {
     }
     _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // 监听 Auth 状态
     _sb.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         currentUser = session.user;
@@ -82,7 +73,6 @@ function initSupabase() {
       }
     });
 
-    // 检查已有会话
     _sb.auth.getSession().then(({ data }) => {
       if (data.session?.user) {
         currentUser = data.session.user;
@@ -112,14 +102,28 @@ function setAuthMsg(msg, isError = false) {
   el.classList.toggle('error', isError);
 }
 
+// ── 手机号工具 ──────────────────────────────────────────────
+function phoneToEmail(phone) {
+  // 把手机号转成内部邮箱，用户无感知，无需短信服务
+  return `${phone.replace(/\D/g, '')}@phone.dailv`;
+}
+
+function validatePhone(phone) {
+  return /^1[3-9]\d{9}$/.test(phone.replace(/\s/g, ''));
+}
+
 async function doLogin() {
   if (!_sb) { setAuthMsg('请先配置 Supabase，或选择本地模式', true); return; }
-  const email = document.getElementById('login-email').value.trim();
+  const phone = document.getElementById('login-phone').value.trim();
   const pwd   = document.getElementById('login-pwd').value;
-  if (!email || !pwd) { setAuthMsg('请填写邮箱和密码', true); return; }
+  if (!phone || !pwd) { setAuthMsg('请填写手机号和密码', true); return; }
+  if (!validatePhone(phone)) { setAuthMsg('请输入正确的手机号', true); return; }
 
   setAuthMsg('登录中…');
-  const { data, error } = await _sb.auth.signInWithPassword({ email, password: pwd });
+  const { data, error } = await _sb.auth.signInWithPassword({
+    email: phoneToEmail(phone),
+    password: pwd,
+  });
   if (error) { setAuthMsg(friendlyError(error.message), true); return; }
   currentUser = data.user;
   enterApp(data.user);
@@ -128,20 +132,22 @@ async function doLogin() {
 async function doRegister() {
   if (!_sb) { setAuthMsg('请先配置 Supabase，或选择本地模式', true); return; }
   const name  = document.getElementById('reg-name').value.trim();
-  const email = document.getElementById('reg-email').value.trim();
+  const phone = document.getElementById('reg-phone').value.trim();
   const pwd   = document.getElementById('reg-pwd').value;
-  if (!name || !email || !pwd) { setAuthMsg('请填写所有字段', true); return; }
+  if (!name || !phone || !pwd) { setAuthMsg('请填写所有字段', true); return; }
+  if (!validatePhone(phone))   { setAuthMsg('请输入正确的手机号', true); return; }
   if (pwd.length < 6)          { setAuthMsg('密码至少 6 位', true); return; }
 
   setAuthMsg('注册中…');
   const { data, error } = await _sb.auth.signUp({
-    email, password: pwd,
-    options: { data: { display_name: name } },
+    email: phoneToEmail(phone),
+    password: pwd,
+    options: { data: { display_name: name, phone } },
   });
   if (error) { setAuthMsg(friendlyError(error.message), true); return; }
 
   if (data.user && !data.session) {
-    setAuthMsg('✓ 注册成功！请去邮箱确认后再登录。');
+    setAuthMsg('✓ 注册成功！请返回登录。');
   } else if (data.user) {
     currentUser = data.user;
     enterApp(data.user);
@@ -164,9 +170,10 @@ function useLocalMode() {
 }
 
 function friendlyError(msg) {
-  if (msg.includes('Invalid login'))   return '邮箱或密码错误';
-  if (msg.includes('Email not confirmed')) return '请先确认邮箱';
-  if (msg.includes('already registered')) return '该邮箱已注册，请直接登录';
+  if (msg.includes('Invalid login'))       return '手机号或密码错误';
+  if (msg.includes('Email not confirmed')) return '请在 Supabase 后台关闭邮件验证';
+  if (msg.includes('already registered'))  return '该手机号已注册，请直接登录';
+  if (msg.includes('Password should be'))  return '密码至少 6 位';
   return msg;
 }
 
@@ -268,13 +275,12 @@ async function remoteLoad(dayKey) {
       .eq('user_id', currentUser.id)
       .eq('entry_date', dayKey.replace('diary_', ''))
       .single();
-    if (error || !data) return localLoad(dayKey); // fallback
+    if (error || !data) return localLoad(dayKey);
     return data.content;
   } catch { return localLoad(dayKey); }
 }
 
 async function remoteSave(dayKey, content) {
-  // Always save locally as cache/offline fallback
   localSave(dayKey, content);
   if (!_sb || isLocalMode) return true;
   try {
@@ -309,7 +315,6 @@ async function loadTodayData() {
   const data = await remoteLoad(todayKey());
   if (!data) return;
 
-  // Textareas
   document.querySelectorAll('.jtextarea[data-key]').forEach(ta => {
     if (data[ta.dataset.key] !== undefined) {
       ta.value = data[ta.dataset.key];
@@ -317,10 +322,8 @@ async function loadTodayData() {
     }
   });
 
-  // Todos
   if (Array.isArray(data.todos)) { todos = data.todos; renderTodos(); }
 
-  // Mood words
   if (Array.isArray(data.moodWords)) {
     moodWords = data.moodWords;
     document.querySelectorAll('.mword').forEach(b => {
@@ -328,7 +331,6 @@ async function loadTodayData() {
     });
   }
 
-  // Tags
   if (Array.isArray(data.exerciseTags)) {
     exerciseTags = data.exerciseTags;
     syncTagUI('exercise', exerciseTags);
@@ -338,10 +340,8 @@ async function loadTodayData() {
     syncTagUI('reading', readingTags);
   }
 
-  // Gratitude
   if (Array.isArray(data.gratItems)) { gratItems = data.gratItems; renderGrat(); }
 
-  // Goal today-checkins live inside diary day (checkbox/percent per goal per day)
   if (data.goalCheckins) renderGoalsWithCheckins(data.goalCheckins);
 }
 
@@ -353,7 +353,6 @@ function collectState() {
   document.querySelectorAll('.jtextarea[data-key]').forEach(ta => {
     data[ta.dataset.key] = ta.value;
   });
-  // Collect goal checkins
   data.goalCheckins = collectGoalCheckins();
   return data;
 }
@@ -386,7 +385,6 @@ function insertPrompt(key, chipEl) {
   if (!ta) return;
   const q = chipEl.textContent.trim();
   chipEl.classList.add('used');
-  // Append question as a new line prompt
   const sep = ta.value && !ta.value.endsWith('\n') ? '\n\n' : '';
   ta.value += `${sep}${q}\n`;
   ta.focus();
@@ -600,7 +598,6 @@ const FIELD_LABELS = [
 function buildDetailHTML(data) {
   let html = '<div class="h-grid">';
 
-  // Todos
   if (Array.isArray(data.todos) && data.todos.length) {
     html += `<div class="h-field"><div class="h-field-label">今天的安排</div><div class="h-todo-list">`;
     data.todos.forEach(t => {
@@ -610,7 +607,6 @@ function buildDetailHTML(data) {
     html += '</div></div>';
   }
 
-  // Gratitude items
   if (Array.isArray(data.gratItems) && data.gratItems.length) {
     html += `<div class="h-field"><div class="h-field-label">今天，我感谢……</div><div class="h-todo-list">`;
     data.gratItems.forEach(g => {
@@ -619,7 +615,6 @@ function buildDetailHTML(data) {
     html += '</div></div>';
   }
 
-  // Mood words
   if (Array.isArray(data.moodWords) && data.moodWords.length) {
     html += `<div class="h-field">
       <div class="h-field-label">今天的心情</div>
@@ -658,7 +653,6 @@ function bindEnterGrat() {
 
 function insertPromptAndFocusList(key, chipEl) {
   insertPrompt(key, chipEl);
-  // Also focus the list input for quick entry
   document.getElementById('grat-input').focus();
 }
 
@@ -704,7 +698,7 @@ function renderGrat() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// GOALS — 纯文字记录，简洁版
+// GOALS
 // ═══════════════════════════════════════════════════════════
 function goalsStorageKey() {
   const uid = currentUser?.id || 'local';
@@ -791,7 +785,6 @@ function renderGoalsList() {
     if (goal.deadline) {
       const dl = document.createElement('span');
       dl.className = 'goal-deadline';
-      // Format date nicely
       const [y, m, d] = goal.deadline.split('-');
       dl.textContent = `${m}/${d} 截止`;
       top.append(dl);
@@ -811,6 +804,5 @@ function renderGoalsList() {
   });
 }
 
-// collectGoalCheckins no longer needed (text-only), keep stub for collectState compatibility
 function collectGoalCheckins() { return {}; }
 function renderGoalsWithCheckins() { renderGoalsList(); }
