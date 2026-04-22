@@ -29,7 +29,7 @@ html { scroll-behavior: smooth; }
 
 body {
   font-family: var(--serif);
-  background: var(--bg);
+  background: #111;
   color: var(--text);
   min-height: 100vh;
   font-size: 15px;
@@ -181,10 +181,10 @@ header {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(247,246,243,0.9);
+  background: rgba(17,17,17,0.95);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid #2a2a2a;
 }
 
 .hd-inner {
@@ -205,7 +205,7 @@ header {
 .hd-date {
   font-family: var(--mono);
   font-size: 0.7rem;
-  color: var(--faint);
+  color: #777;
   margin-left: 12px;
 }
 
@@ -215,25 +215,32 @@ header {
 .hd-user {
   font-family: var(--mono);
   font-size: 0.73rem;
-  color: var(--dim);
+  color: #888;
   max-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.logo {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #eee;
+}
+
 .hbtn {
   padding: 5px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid #333;
   border-radius: 7px;
   background: transparent;
   font-family: var(--mono);
   font-size: 0.7rem;
-  color: var(--dim);
+  color: #888;
   cursor: pointer;
   transition: background 0.15s;
 }
-.hbtn:hover { background: var(--card); }
+.hbtn:hover { background: #222; }
 
 /* ── Main Layout ────────────────────────────────────────────── */
 main {
